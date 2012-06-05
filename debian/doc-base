@@ -1,0 +1,9 @@
+Document: offlineimap
+Title: OfflineIMAP Manual and FAQ
+Abstract: Powerful IMAP/Maildir synchronization and reader manual and FAQ
+Section: Network/Communication
+Author: John Goerzen
+
+Format: HTML
+Index: /usr/share/doc/offlineimap/html/index.html
+Files: /usr/share/doc/offlineimap/html/*.html

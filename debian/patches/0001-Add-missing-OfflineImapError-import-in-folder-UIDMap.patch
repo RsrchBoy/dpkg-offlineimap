@@ -1,0 +1,27 @@
+From b0976eea8d6ad108eea02803601001838ce3ff54 Mon Sep 17 00:00:00 2001
+From: Dmitrijs Ledkovs <xnox@debian.org>
+Date: Tue, 5 Jun 2012 01:18:33 +0100
+Subject: [PATCH 1/2] Add missing OfflineImapError import in folder/UIDMaps.py
+
+Bug-Debian: http://bugs.debian.org/671279
+Reported-by: Ansgar Burchardt <ansgar@debian.org>
+Signed-off-by: Dmitrijs Ledkovs <xnox@debian.org>
+---
+ offlineimap/folder/UIDMaps.py |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/offlineimap/folder/UIDMaps.py b/offlineimap/folder/UIDMaps.py
+index f1c11e4..f571772 100644
+--- a/offlineimap/folder/UIDMaps.py
++++ b/offlineimap/folder/UIDMaps.py
+@@ -15,6 +15,7 @@
+ #    along with this program; if not, write to the Free Software
+ #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ from threading import Lock
++from offlineimap import OfflineImapError
+ from .IMAP import IMAPFolder
+ import os.path
+ 
+-- 
+1.7.10
+

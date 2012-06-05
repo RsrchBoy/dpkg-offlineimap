@@ -1,0 +1,31 @@
+offlineimap (6.5.4-1) unstable; urgency=low
+
+  offlineimap.conf:
+  * SSL certificate fingerprints are now actually verified. You may want
+    to use provide correct fingerprints or use Debian SSL CA
+    certifications for Remote repository validation with the
+    following option:
+    `sslcacertfile = /etc/ssl/certs/ca-certificates.crt`
+  * createfolders (Default: True) enables creating folders in a
+    repository, and can be set to False to disable the propagation of new
+    folders to the new repository. See sample offlineimap.conf.
+  * Notices added that '%' needs to be encoded as '%%'
+
+ -- Dmitrijs Ledkovs <xnox@debian.org>  Sun, 03 Jun 2012 23:55:15 +0100
+
+offlineimap (6.5.3.1-2) unstable; urgency=low
+
+  Reverse nametrans
+  +++++++++++++++++
+  
+    Starting with v6.4.0, OfflineImap supports the creation of folders on the
+    remote repostory. This change means that people that only had a
+    nametrans option on the remote repository (everyone) will need to have a
+    nametrans setting on the local repository too that will reverse the name
+    transformation. 
+
+    For further information, see documentation about this feature at:
+
+      file:///usr/share/doc/offlineimap/html/nametrans.html#reverse-nametrans
+
+ -- Dmitrijs Ledkovs <xnox@debian.org>  Sun, 29 Apr 2012 18:13:18 +0100

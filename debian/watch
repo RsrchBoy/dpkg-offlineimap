@@ -1,0 +1,3 @@
+version=3
+opts="uversionmangle=s/-rc/~rc/" \
+http://githubredir.debian.net/github/spaetz/offlineimap .*/v(.*).tar.gz

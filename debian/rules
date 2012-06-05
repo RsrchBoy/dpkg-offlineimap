@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --buildsystem=python_distutils --with=python2,sphinxdoc
+
+override_dh_auto_build:
+	dh_auto_build
+	make man doc
+
+override_dh_installchangelogs:
+	dh_installchangelogs Changelog.html
