@@ -1,3 +1,9 @@
+offlineimap (6.5.4-2~12.04~ppa1) precise; urgency=low
+
+  * Build for precise.
+
+ -- Chris Weyl <cweyl@alumni.drew.edu>  Tue, 12 Nov 2013 13:44:48 -0800
+
 offlineimap (6.5.4-2) unstable; urgency=low
 
   * Set myself as a maintainer
