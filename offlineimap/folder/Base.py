@@ -15,7 +15,8 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
-from offlineimap import threadutil
+from offlineimap import threadutil, emailutil
+from offlineimap import globals
 from offlineimap.ui import getglobalui
 from offlineimap.error import OfflineImapError
 import offlineimap.accounts
@@ -31,9 +32,12 @@ class BaseFolder(object):
         :para name: Path & name of folder minus root or reference
         :para repository: Repository() in which the folder is.
         """
-        self.sync_this = True
-        """Should this folder be included in syncing?"""
         self.ui = getglobalui()
+        """Should this folder be included in syncing?"""
+        self._sync_this = repository.should_sync_folder(name)
+        if not self._sync_this:
+            self.ui.debug('', "Filtering out '%s'[%s] due to folderfilter" \
+                          % (name, repository))
         # Top level dir name is always ''
         self.name = name if not name == self.getsep() else ''
         self.repository = repository
@@ -44,6 +48,13 @@ class BaseFolder(object):
         if self.visiblename == self.getsep():
             self.visiblename = ''
         self.config = repository.getconfig()
+        utime_from_message_global = \
+          self.config.getdefaultboolean("general",
+          "utime_from_message", False)
+        repo = "Repository " + repository.name
+        self._utime_from_message = \
+          self.config.getdefaultboolean(repo,
+          "utime_from_message", utime_from_message_global)
 
     def getname(self):
         """Returns name"""
@@ -56,6 +67,15 @@ class BaseFolder(object):
     def accountname(self):
         """Account name as string"""
         return self.repository.accountname
+
+    @property
+    def sync_this(self):
+        """Should this folder be synced or is it e.g. filtered out?"""
+        return self._sync_this
+
+    @property
+    def utime_from_message(self):
+        return self._utime_from_message
 
     def suggeststhreads(self):
         """Returns true if this folder suggests using threads for actions;
@@ -201,7 +221,7 @@ class BaseFolder(object):
            If the backend CAN assign a new uid, but cannot find out what
            this UID is (as is the case with some IMAP servers), it
            returns 0 but DOES save the message.
-        
+
            IMAP backend should be the only one that can assign a new
            uid.
 
@@ -318,6 +338,9 @@ class BaseFolder(object):
             message = None
             flags = self.getmessageflags(uid)
             rtime = self.getmessagetime(uid)
+            if dstfolder.utime_from_message:
+                content = self.getmessage(uid)
+                rtime = emailutil.get_message_date(content, 'Date')
 
             if uid > 0 and dstfolder.uidexists(uid):
                 # dst has message with that UID already, only update status
@@ -358,12 +381,12 @@ class BaseFolder(object):
             raise
         except OfflineImapError as e:
             if e.severity > OfflineImapError.ERROR.MESSAGE:
-                raise # buble severe errors up
+                raise # bubble severe errors up
             self.ui.error(e, exc_info()[2])
         except Exception as e:
-            self.ui.error(e, "Copying message %s [acc: %s]:\n %s" %\
-                              (uid, self.accountname,
-                               exc_info()[2]))
+            self.ui.error(e, exc_info()[2],
+              msg="Copying message %s [acc: %s]" %\
+                              (uid, self.accountname))
             raise    #raise on unknown errors, so we can fix those
 
     def syncmessagesto_copy(self, dstfolder, statusfolder):
@@ -386,7 +409,7 @@ class BaseFolder(object):
                             self.getmessageuidlist())
         num_to_copy = len(copylist)
         if num_to_copy and self.repository.account.dryrun:
-            self.ui.info("[DRYRUN] Copy {} messages from {}[{}] to {}".format(
+            self.ui.info("[DRYRUN] Copy {0} messages from {1}[{2}] to {3}".format(
                     num_to_copy, self, self.repository, dstfolder.repository))
             return
         for num, uid in enumerate(copylist):
@@ -395,7 +418,7 @@ class BaseFolder(object):
                 break
             self.ui.copyingmessage(uid, num+1, num_to_copy, self, dstfolder)
             # exceptions are caught in copymessageto()
-            if self.suggeststhreads():
+            if self.suggeststhreads() and not globals.options.singlethreading:
                 self.waitforthread()
                 thread = threadutil.InstanceLimitedThread(\
                     self.getcopyinstancelimit(),
@@ -484,7 +507,7 @@ class BaseFolder(object):
                 continue #don't actually remove in a dryrun
             dstfolder.deletemessagesflags(uids, set(flag))
             statusfolder.deletemessagesflags(uids, set(flag))
-                
+
     def syncmessagesto(self, dstfolder, statusfolder):
         """Syncs messages in this folder to the destination dstfolder.
 
@@ -505,7 +528,7 @@ class BaseFolder(object):
          uids present (except for potential negative uids that couldn't
          be placed anywhere).
 
-        Pass3: Synchronize flag changes 
+        Pass3: Synchronize flag changes
          Compare flag mismatches in self with those in statusfolder. If
          msg has a valid UID and exists on dstfolder (has not e.g. been
          deleted there), sync the flag change to both dstfolder and

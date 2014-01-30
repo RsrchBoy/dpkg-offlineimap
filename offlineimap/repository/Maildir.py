@@ -85,7 +85,7 @@ class MaildirRepository(BaseRepository):
         if self.account.dryrun:
             return
         full_path = os.path.abspath(os.path.join(self.root, foldername))
-    
+
         # sanity tests
         if self.getsep() == '/':
             for component in foldername.split('/'):
@@ -181,11 +181,6 @@ class MaildirRepository(BaseRepository):
                                                            foldername,
                                                            self.getsep(),
                                                            self))
-                # filter out the folder?
-                if not self.folderfilter(foldername):
-                    self.debug("Filtering out '%s'[%s] due to folderfilt"
-                               "er" % (foldername, self))
-                    retval[-1].sync_this = False
 
             if self.getsep() == '/' and dirname != '':
                 # Recursively check sub-directories for folders too.
