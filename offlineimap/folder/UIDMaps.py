@@ -15,6 +15,7 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 from threading import Lock
+from offlineimap import OfflineImapError
 from .IMAP import IMAPFolder
 import os.path
 
@@ -41,7 +42,7 @@ class MappedIMAPFolder(IMAPFolder):
     def _getmapfilename(self):
         return os.path.join(self.repository.getmapdir(),
                             self.getfolderbasename())
-        
+
     def _loadmaps(self):
         self.maplock.acquire()
         try:

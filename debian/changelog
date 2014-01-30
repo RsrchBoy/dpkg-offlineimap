@@ -1,3 +1,10 @@
+offlineimap (6.5.5-0.1) UNRELEASED; urgency=low
+
+  * Non-maintainer upload.
+  * ...the better to build in our ppa.
+
+ -- Chris Weyl <cweyl@alumni.drew.edu>  Thu, 30 Jan 2014 11:00:25 -0800
+
 offlineimap (6.5.4-2~12.04~ppa1) precise; urgency=low
 
   * Build for precise.
