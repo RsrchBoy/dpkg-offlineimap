@@ -40,7 +40,7 @@ Most configuration is done via the configuration file.  However, any setting can
 
 OfflineImap is well suited to be frequently invoked by cron jobs, or can run in daemon mode to periodically check your email (however, it will exit in some error situations).
 
-The documentation is included in the git repository and can be created by 
+The documentation is included in the git repository and can be created by
 issueing `make dev-doc` in the `doc` folder (python-sphinx required), or it can
 be viewed online at http://docs.offlineimap.org.
 
@@ -308,7 +308,8 @@ SAFE CONNECTION GUARANTEEING THE AUTHENTICITY OF YOUR IMAP SERVER!
 UNIX Signals
 ============
 
-OfflineImap listens to the unix signals SIGUSR1 and SIGUSR2.
+OfflineImap listens to the unix signals SIGUSR1, SIGUSR2, SIGTERM,
+SIGINT, SIGHUP, SIGQUIT:
 
 If sent a SIGUSR1 it will abort any current (or next future) sleep of all
 accounts that are configured to "autorefresh". In effect, this will trigger a
@@ -318,6 +319,15 @@ If sent a SIGUSR2, it will stop "autorefresh mode" for all accounts. That is,
 accounts will abort any current sleep and will exit after a currently running
 synchronization has finished. This signal can be used to gracefully exit out of
 a running offlineimap "daemon".
+
+SIGTERM, SIGINT, SIGHUP are all treated to gracefully terminate as
+soon as possible. This means it will finish syncing the current folder
+in each account, close keep alive connections, remove locks on the
+accounts and exit. It may take up to 10 seconds, if autorefresh option
+is used.
+
+SIGQUIT dumps stack traces for all threads and tries to dump process
+core.
 
 Folder filtering and nametrans
 ==============================
@@ -410,7 +420,7 @@ This is an example of a setup where "TheOtherImap" requires all folders to be un
     # The below will put all GMAIL folders as sub-folders of the 'local' INBOX,
     # assuming that your path separator on 'local' is a dot.
     nametrans = lambda x: 'INBOX.' + x
-    
+
     [Repository TheOtherImap]
     #This is the 'local' repository
     type = IMAP
@@ -427,7 +437,7 @@ Add this to the remote gmail repository section to only sync mails which are in 
 
 To only get the All Mail folder from a Gmail account, you would e.g. do::
 
-    folderfilter = lambda folder: folder.startswith('[Gmail]/All Mail') 
+    folderfilter = lambda folder: folder.startswith('[Gmail]/All Mail')
 
 
 Another nametrans transpose example
@@ -454,25 +464,25 @@ offlineimap.conf::
     ui = ttyui
     pythonfile=~/bin/offlineimap-helpers.py
     socktimeout = 90
-    
+
     [Account acc1]
     localrepository = acc1local
     remoterepository = acc1remote
     autorefresh = 2
-    
+
     [Account acc2]
     localrepository = acc2local
     remoterepository = acc2remote
     autorefresh = 4
-    
+
     [Repository acc1local]
     type = Maildir
     localfolders = ~/Mail/acc1
-    
+
     [Repository acc2local]
     type = Maildir
     localfolders = ~/Mail/acc2
-    
+
     [Repository acc1remote]
     type = IMAP
     remotehost = imap.acc1.com
@@ -484,7 +494,7 @@ offlineimap.conf::
     # Folders to get:
     folderfilter = lambda foldername: foldername in [
                  'INBOX', 'Drafts', 'Sent', 'archiv']
-    
+
     [Repository acc2remote]
     type = IMAP
     remotehost = imap.acc2.net
@@ -522,7 +532,7 @@ Offlineimap handles the renaming correctly in both directions::
             retval = "acc1." + foldername
         retval = re.sub("/", ".", retval)
         return retval
-    
+
     def oimaptransfolder_acc2(foldername):
         if(foldername == "INBOX"):
             retval = "acc2"
