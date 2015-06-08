@@ -1,5 +1,5 @@
 # OfflineIMAP initialization code
-# Copyright (C) 2002-2011 John Goerzen & contributors
+# Copyright (C) 2002-2015 John Goerzen & contributors
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -23,10 +23,10 @@ import signal
 import socket
 import logging
 from optparse import OptionParser
+
 import offlineimap
 from offlineimap import accounts, threadutil, syncmaster
 from offlineimap import globals
-from offlineimap.error import OfflineImapError
 from offlineimap.ui import UI_LIST, setglobalui, getglobalui
 from offlineimap.CustomConfig import CustomConfigParser
 from offlineimap.utils import stacktrace
@@ -40,137 +40,100 @@ class OfflineImap:
       oi = OfflineImap()
       oi.run()
     """
+
     def run(self):
         """Parse the commandline and invoke everything"""
         # next line also sets self.config and self.ui
-        options, args = self.parse_cmd_options()
+        options, args = self.__parse_cmd_options()
         if options.diagnostics:
-            self.serverdiagnostics(options)
+            self.__serverdiagnostics(options)
         else:
-            self.sync(options)
+            self.__sync(options)
 
-    def parse_cmd_options(self):
-        parser = OptionParser(version=offlineimap.__version__,
+    def __parse_cmd_options(self):
+        parser = OptionParser(version=offlineimap.__bigversion__,
                               description="%s.\n\n%s" %
                               (offlineimap.__copyright__,
                                offlineimap.__license__))
         parser.add_option("--dry-run",
                   action="store_true", dest="dryrun",
                   default=False,
-                  help="Do not actually modify any store but check and print "
-              "what synchronization actions would be taken if a sync would be"
-              " performed. It will not precisely give the exact information w"
-              "hat will happen. If e.g. we need to create a folder, it merely"
-              " outputs 'Would create folder X', but not how many and which m"
-              "ails it would transfer.")
+                  help="dry run mode")
 
         parser.add_option("--info",
                   action="store_true", dest="diagnostics",
                   default=False,
-                  help="Output information on the configured email repositories"
-              ". Useful for debugging and bug reporting. Use in conjunction wit"
-              "h the -a option to limit the output to a single account. This mo"
-              "de will prevent any actual sync to occur and exits after it outp"
-              "ut the debug information.")
+                  help="output information on the configured email repositories")
 
         parser.add_option("-1",
                   action="store_true", dest="singlethreading",
                   default=False,
-                  help="Disable all multithreading operations and use "
-              "solely a single-thread sync. This effectively sets the "
-              "maxsyncaccounts and all maxconnections configuration file "
-              "variables to 1.")
+                  help="(the number one) disable all multithreading operations")
 
         parser.add_option("-P", dest="profiledir", metavar="DIR",
-                  help="Sets OfflineIMAP into profile mode. The program "
-              "will create DIR (it must not already exist). "
-              "As it runs, Python profiling information about each "
-              "thread is logged into profiledir. Please note: "
-              "This option is present for debugging and optimization "
-              "only, and should NOT be used unless you have a "
-              "specific reason to do so. It will significantly "
-              "decrease program performance, may reduce reliability, "
-              "and can generate huge amounts of data. This option "
-              "implies the -1 option.")
+                  help="sets OfflineIMAP into profile mode.")
 
-        parser.add_option("-a", dest="accounts", metavar="ACCOUNTS",
-                  help="Overrides the accounts section in the config file. "
-              "Lets you specify a particular account or set of "
-              "accounts to sync without having to edit the config "
-              "file. You might use this to exclude certain accounts, "
-              "or to sync some accounts that you normally prefer not to.")
+        parser.add_option("-a", dest="accounts",
+                  metavar="account1[,account2[,...]]",
+                  help="list of accounts to sync")
 
         parser.add_option("-c", dest="configfile", metavar="FILE",
-                  default="~/.offlineimaprc",
-                  help="Specifies a configuration file to use in lieu of "
-                       "%default.")
+                  default=None,
+                  help="specifies a configuration file to use")
 
-        parser.add_option("-d", dest="debugtype", metavar="type1,[type2...]",
-                  help="Enables debugging for OfflineIMAP. This is useful "
-              "if you are to track down a malfunction or figure out what is "
-              "going on under the hood. This option requires one or more "
-              "debugtypes, separated by commas. These define what exactly "
-              "will be debugged, and so far include two options: imap, thread, "
-              "maildir or ALL. The imap option will enable IMAP protocol "
-              "stream and parsing debugging. Note that the output may contain "
-              "passwords, so take care to remove that from the debugging "
-              "output before sending it to anyone else. The maildir option "
-              "will enable debugging for certain Maildir operations. "
-              "The use of any debug option (unless 'thread' is included), "
-              "implies the single-thread option -1.")
+        parser.add_option("-d", dest="debugtype",
+                  metavar="type1[,type2[,...]]",
+                  help="enables debugging for OfflineIMAP "
+                  " (types: imap, maildir, thread)")
 
         parser.add_option("-l", dest="logfile", metavar="FILE",
-                  help="Log to FILE")
+                  help="log to FILE")
 
-        parser.add_option("-f", dest="folders", metavar="folder1,[folder2...]",
-                  help="Only sync the specified folders. The folder names "
-              "are the *untranslated* foldernames of the remote repository. "
-              "This command-line option overrides any 'folderfilter' "
-              "and 'folderincludes' options in the configuration file.")
+        parser.add_option("-f", dest="folders",
+                  metavar="folder1[,folder2[,...]]",
+                  help="only sync the specified folders")
 
         parser.add_option("-k", dest="configoverride",
                   action="append",
                   metavar="[section:]option=value",
-                  help=
-              """Override configuration file option. If"section" is
-              omitted, it defaults to "general". Any underscores
-              in the section name are replaced with spaces:
-              for instance, to override option "autorefresh" in
-              the "[Account Personal]" section in the config file
-              one would use "-k Account_Personal:autorefresh=30".""")
+                  help="override configuration file option")
 
         parser.add_option("-o",
                   action="store_true", dest="runonce",
                   default=False,
-                  help="Run only once, ignoring any autorefresh setting "
-                       "in the configuration file.")
+                  help="run only once (ignore autorefresh)")
 
         parser.add_option("-q",
                   action="store_true", dest="quick",
                   default=False,
-                  help="Run only quick synchronizations. Ignore any "
-              "flag updates on IMAP servers (if a flag on the remote IMAP "
-              "changes, and we have the message locally, it will be left "
-              "untouched in a quick run.")
+                  help="run only quick synchronizations (don't update flags)")
 
         parser.add_option("-u", dest="interface",
-                  help="Specifies an alternative user interface to "
-              "use. This overrides the default specified in the "
-              "configuration file. The UI specified with -u will "
-              "be forced to be used, even if checks determine that it is "
-              "not usable. Possible interface choices are: %s " %
-              ", ".join(UI_LIST.keys()))
+                  help="specifies an alternative user interface"
+                  " (quiet, basic, ttyui, blinkenlights, machineui)")
 
         (options, args) = parser.parse_args()
         globals.set_options (options)
 
         #read in configuration file
-        configfilename = os.path.expanduser(options.configfile)
+        if not options.configfile:
+            # Try XDG location, then fall back to ~/.offlineimaprc
+            xdg_var = 'XDG_CONFIG_HOME'
+            if not xdg_var in os.environ or not os.environ[xdg_var]:
+                xdg_home = os.path.expanduser('~/.config')
+            else:
+                xdg_home = os.environ[xdg_var]
+            options.configfile = os.path.join(xdg_home, "offlineimap", "config")
+            if not os.path.exists(options.configfile):
+                options.configfile = os.path.expanduser('~/.offlineimaprc')
+            configfilename = options.configfile
+        else:
+            configfilename = os.path.expanduser(options.configfile)
 
         config = CustomConfigParser()
         if not os.path.exists(configfilename):
             # TODO, initialize and make use of chosen ui for logging
-            logging.error(" *** Config file '%s' does not exist; aborting!" %
+            logging.error(" *** Config file '%s' does not exist; aborting!"%
                           configfilename)
             sys.exit(1)
         config.read(configfilename)
@@ -183,14 +146,14 @@ class OfflineImap:
                 options.singlethreading = True
             if os.path.exists(options.profiledir):
                 # TODO, make use of chosen ui for logging
-                logging.warn("Profile mode: Directory '%s' already exists!" %
+                logging.warn("Profile mode: Directory '%s' already exists!"%
                              options.profiledir)
             else:
                 os.mkdir(options.profiledir)
             threadutil.ExitNotifyThread.set_profiledir(options.profiledir)
             # TODO, make use of chosen ui for logging
             logging.warn("Profile mode: Potentially large data will be "
-                         "created in '%s'" % options.profiledir)
+                         "created in '%s'"% options.profiledir)
 
         #override a config value
         if options.configoverride:
@@ -204,7 +167,7 @@ class OfflineImap:
                 config.set(section, key, value)
 
         #which ui to use? cmd line option overrides config file
-        ui_type = config.getdefault('general','ui', 'ttyui')
+        ui_type = config.getdefault('general', 'ui', 'ttyui')
         if options.interface != None:
             ui_type = options.interface
         if '.' in ui_type:
@@ -212,20 +175,20 @@ class OfflineImap:
             ui_type = ui_type.split('.')[-1]
             # TODO, make use of chosen ui for logging
             logging.warning('Using old interface name, consider using one '
-                            'of %s' % ', '.join(UI_LIST.keys()))
+                            'of %s'% ', '.join(UI_LIST.keys()))
         if options.diagnostics: ui_type = 'basic' # enforce basic UI for --info
 
-        #dry-run? Set [general]dry-run=True
+        # dry-run? Set [general]dry-run=True
         if options.dryrun:
-            dryrun = config.set('general','dry-run', "True")
-        config.set_if_not_exists('general','dry-run','False')
+            dryrun = config.set('general', 'dry-run', 'True')
+        config.set_if_not_exists('general', 'dry-run', 'False')
 
         try:
             # create the ui class
             self.ui = UI_LIST[ui_type.lower()](config)
         except KeyError:
-            logging.error("UI '%s' does not exist, choose one of: %s" % \
-                              (ui_type,', '.join(UI_LIST.keys())))
+            logging.error("UI '%s' does not exist, choose one of: %s"% \
+                              (ui_type, ', '.join(UI_LIST.keys())))
             sys.exit(1)
         setglobalui(self.ui)
 
@@ -247,14 +210,14 @@ class OfflineImap:
                 options.singlethreading = True
 
             debugtypes = options.debugtype.split(',') + ['']
-            for type in debugtypes:
-                type = type.strip()
-                self.ui.add_debug(type)
-                if type.lower() == 'imap':
+            for dtype in debugtypes:
+                dtype = dtype.strip()
+                self.ui.add_debug(dtype)
+                if dtype.lower() == u'imap':
                     imaplib.Debug = 5
 
         if options.runonce:
-            # FIXME: maybe need a better
+            # FIXME: spaghetti code alert!
             for section in accounts.getaccountlist(config):
                 config.remove_option('Account ' + section, "autorefresh")
 
@@ -265,7 +228,7 @@ class OfflineImap:
         #custom folder list specified?
         if options.folders:
             foldernames = options.folders.split(",")
-            folderfilter = "lambda f: f in %s" % foldernames
+            folderfilter = "lambda f: f in %s"% foldernames
             folderincludes = "[]"
             for accountname in accounts.getaccountlist(config):
                 account_section = 'Account ' + accountname
@@ -297,7 +260,7 @@ class OfflineImap:
         self.config = config
         return (options, args)
 
-    def sync(self, options):
+    def __sync(self, options):
         """Invoke the correct single/multithread syncing
 
         self.config is supposed to have been correctly initialized
@@ -310,6 +273,8 @@ class OfflineImap:
             pass
 
         try:
+            # Honor CLI --account option, only.
+            # Accounts to sync are put into syncaccounts variable.
             activeaccounts = self.config.get("general", "accounts")
             if options.accounts:
                 activeaccounts = options.accounts
@@ -321,13 +286,13 @@ class OfflineImap:
             for account in activeaccounts:
                 if account not in allaccounts:
                     if len(allaccounts) == 0:
-                        errormsg = "The account '%s' does not exist because no"\
-                        " accounts are defined!" % account
+                        errormsg = "The account '%s' does not exist because no" \
+                            " accounts are defined!"% account
                     else:
-                        errormsg = "The account '%s' does not exist.  Valid ac"\
-                        "counts are: " % account
-                        errormsg += ", ".join(allaccounts.keys())
-                    self.ui.terminate(1, errormsg = errormsg)
+                        errormsg = "The account '%s' does not exist.  Valid ac" \
+                            "counts are: %s"% \
+                            (account, ", ".join(allaccounts.keys()))
+                    self.ui.terminate(1, errormsg=errormsg)
                 if account not in syncaccounts:
                     syncaccounts.append(account)
 
@@ -345,12 +310,12 @@ class OfflineImap:
                                        "take a few seconds)...")
                     accounts.Account.set_abort_event(self.config, 3)
                 elif sig == signal.SIGQUIT:
-                    stacktrace.dump (sys.stderr)
+                    stacktrace.dump(sys.stderr)
                     os.abort()
 
-            signal.signal(signal.SIGHUP,sig_handler)
-            signal.signal(signal.SIGUSR1,sig_handler)
-            signal.signal(signal.SIGUSR2,sig_handler)
+            signal.signal(signal.SIGHUP, sig_handler)
+            signal.signal(signal.SIGUSR1, sig_handler)
+            signal.signal(signal.SIGUSR2, sig_handler)
             signal.signal(signal.SIGTERM, sig_handler)
             signal.signal(signal.SIGINT, sig_handler)
             signal.signal(signal.SIGQUIT, sig_handler)
@@ -360,7 +325,7 @@ class OfflineImap:
 
             if options.singlethreading:
                 #singlethreaded
-                self.sync_singlethreaded(syncaccounts)
+                self.__sync_singlethreaded(syncaccounts)
             else:
                 # multithreaded
                 t = threadutil.ExitNotifyThread(target=syncmaster.syncitall,
@@ -369,6 +334,10 @@ class OfflineImap:
                                            'config': self.config})
                 t.start()
                 threadutil.exitnotifymonitorloop(threadutil.threadexited)
+
+            if not options.dryrun:
+                offlineimap.mbnames.write(True)
+
             self.ui.terminate()
         except (SystemExit):
             raise
@@ -376,7 +345,7 @@ class OfflineImap:
             self.ui.error(e)
             self.ui.terminate()
 
-    def sync_singlethreaded(self, accs):
+    def __sync_singlethreaded(self, accs):
         """Executed if we do not want a separate syncmaster thread
 
         :param accs: A list of accounts that should be synced
@@ -384,10 +353,10 @@ class OfflineImap:
         for accountname in accs:
             account = offlineimap.accounts.SyncableAccount(self.config,
                                                            accountname)
-            threading.currentThread().name = "Account sync %s" % accountname
+            threading.currentThread().name = "Account sync %s"% accountname
             account.syncrunner()
 
-    def serverdiagnostics(self, options):
+    def __serverdiagnostics(self, options):
         activeaccounts = self.config.get("general", "accounts")
         if options.accounts:
             activeaccounts = options.accounts

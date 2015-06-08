@@ -1,6 +1,5 @@
 # imaplib utilities
-# Copyright (C) 2002-2007 John Goerzen <jgoerzen@complete.org>
-#               2012-2012 Sebastian Spaeth <Sebastian@SSpaeth.de>
+# Copyright (C) 2002-2015 John Goerzen & contributors
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation; either version 2 of the License, or
@@ -17,36 +16,36 @@
 
 import os
 import fcntl
-import re
-import socket
-import ssl
 import time
 import subprocess
+from sys import exc_info
 import threading
 from hashlib import sha1
+import socket
+import errno
 
 from offlineimap.ui import getglobalui
 from offlineimap import OfflineImapError
-from offlineimap.imaplib2 import IMAP4, IMAP4_SSL, zlib, IMAP4_PORT, InternalDate, Mon2num
+from offlineimap.imaplib2 import IMAP4, IMAP4_SSL, zlib, InternalDate, Mon2num
 
 
 class UsefulIMAPMixIn(object):
-    def getselectedfolder(self):
+    def __getselectedfolder(self):
         if self.state == 'SELECTED':
             return self.mailbox
         return None
 
-    def select(self, mailbox='INBOX', readonly=False, force = False):
+    def select(self, mailbox='INBOX', readonly=False, force=False):
         """Selects a mailbox on the IMAP server
 
         :returns: 'OK' on success, nothing if the folder was already
-        selected or raises an :exc:`OfflineImapError`"""
-        if self.getselectedfolder() == mailbox and self.is_readonly == readonly \
-                and not force:
+        selected or raises an :exc:`OfflineImapError`."""
+
+        if self.__getselectedfolder() == mailbox and \
+            self.is_readonly == readonly and \
+            not force:
             # No change; return.
             return
-        # Wipe out all old responses, to maintain semantics with old imaplib2
-        del self.untagged_responses[:]
         try:
             result = super(UsefulIMAPMixIn, self).select(mailbox, readonly)
         except self.readonly as e:
@@ -57,7 +56,7 @@ class UsefulIMAPMixIn(object):
             errstr = "Server '%s' closed connection, error on SELECT '%s'. Ser"\
                 "ver said: %s" % (self.host, mailbox, e.args[0])
             severity = OfflineImapError.ERROR.FOLDER_RETRY
-            raise OfflineImapError(errstr, severity)
+            raise OfflineImapError(errstr, severity), None, exc_info()[2]
         if result[0] != 'OK':
             #in case of error, bail out with OfflineImapError
             errstr = "Error SELECTing mailbox '%s', server reply:\n%s" %\
@@ -66,8 +65,41 @@ class UsefulIMAPMixIn(object):
             raise OfflineImapError(errstr, severity)
         return result
 
+    # Overrides private function from IMAP4 (@imaplib2)
     def _mesg(self, s, tn=None, secs=None):
         new_mesg(self, s, tn, secs)
+
+    # Overrides private function from IMAP4 (@imaplib2)
+    def open_socket(self):
+        """open_socket()
+        Open socket choosing first address family available."""
+        msg = (-1, 'could not open socket')
+        for res in socket.getaddrinfo(self.host, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+            af, socktype, proto, canonname, sa = res
+            try:
+                # use socket of our own, possiblly socksified socket.
+                s = self.socket(af, socktype, proto)
+            except socket.error, msg:
+                continue
+            try:
+                for i in (0, 1):
+                    try:
+                        s.connect(sa)
+                        break
+                    except socket.error, msg:
+                        if len(msg.args) < 2 or msg.args[0] != errno.EINTR:
+                            raise
+                else:
+                    raise socket.error(msg)
+            except socket.error, msg:
+                s.close()
+                continue
+            break
+        else:
+            raise socket.error(msg)
+
+        return s
+
 
 class IMAP4_Tunnel(UsefulIMAPMixIn, IMAP4):
     """IMAP4 client class over a tunnel
@@ -78,10 +110,14 @@ class IMAP4_Tunnel(UsefulIMAPMixIn, IMAP4):
     The result will be in PREAUTH stage."""
 
     def __init__(self, tunnelcmd, **kwargs):
+        if "use_socket" in kwargs:
+            self.socket = kwargs['use_socket']
+            del kwargs['use_socket']
         IMAP4.__init__(self, tunnelcmd, **kwargs)
 
     def open(self, host, port):
         """The tunnelcmd comes in on host!"""
+
         self.host = host
         self.process = subprocess.Popen(host, shell=True, close_fds=True,
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -92,7 +128,8 @@ class IMAP4_Tunnel(UsefulIMAPMixIn, IMAP4):
         self.set_nonblocking(self.read_fd)
 
     def set_nonblocking(self, fd):
-        "Mark fd as nonblocking"
+        """Mark fd as nonblocking"""
+
         # get the file's current flag settings
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         # clear non-blocking mode from flags
@@ -117,9 +154,7 @@ class IMAP4_Tunnel(UsefulIMAPMixIn, IMAP4):
         if self.compressor is not None:
             data = self.compressor.compress(data)
             data += self.compressor.flush(zlib.Z_SYNC_FLUSH)
-
         self.outfd.write(data)
-
 
     def shutdown(self):
         self.infd.close()
@@ -137,36 +172,55 @@ def new_mesg(self, s, tn=None, secs=None):
 
 
 class WrappedIMAP4_SSL(UsefulIMAPMixIn, IMAP4_SSL):
-    """Improved version of imaplib.IMAP4_SSL overriding select()"""
+    """Improved version of imaplib.IMAP4_SSL overriding select()."""
+
     def __init__(self, *args, **kwargs):
+        if "use_socket" in kwargs:
+            self.socket = kwargs['use_socket']
+            del kwargs['use_socket']
         self._fingerprint = kwargs.get('fingerprint', None)
+        if type(self._fingerprint) != type([]):
+            self._fingerprint = [self._fingerprint]
         if 'fingerprint' in kwargs:
             del kwargs['fingerprint']
         super(WrappedIMAP4_SSL, self).__init__(*args, **kwargs)
 
     def open(self, host=None, port=None):
+        if not self.ca_certs and not self._fingerprint:
+            raise OfflineImapError("No CA certificates "
+              "and no server fingerprints configured.  "
+              "You must configure at least something, otherwise "
+              "having SSL helps nothing.", OfflineImapError.ERROR.REPO)
         super(WrappedIMAP4_SSL, self).open(host, port)
-        if (self._fingerprint or not self.ca_certs):
+        if self._fingerprint:
             # compare fingerprints
             fingerprint = sha1(self.sock.getpeercert(True)).hexdigest()
-            if fingerprint != self._fingerprint:
-                raise OfflineImapError("Server SSL fingerprint '%s' for hostnam"
-                      "e '%s' does not match configured fingerprint. Please ver"
-                      "ify and set 'cert_fingerprint' accordingly if not set ye"
-                      "t." % (fingerprint, host),
-                                       OfflineImapError.ERROR.REPO)
+            if fingerprint not in self._fingerprint:
+                raise OfflineImapError("Server SSL fingerprint '%s' "
+                      "for hostname '%s' "
+                      "does not match configured fingerprint(s) %s.  "
+                      "Please verify and set 'cert_fingerprint' accordingly "
+                      "if not set yet."%
+                      (fingerprint, host, self._fingerprint),
+                      OfflineImapError.ERROR.REPO)
 
 
 class WrappedIMAP4(UsefulIMAPMixIn, IMAP4):
-    """Improved version of imaplib.IMAP4 overriding select()"""
-    pass
+    """Improved version of imaplib.IMAP4 overriding select()."""
+
+    def __init__(self, *args, **kwargs):
+        if "use_socket" in kwargs:
+            self.socket = kwargs['use_socket']
+            del kwargs['use_socket']
+        IMAP4.__init__(self, *args, **kwargs)
 
 
 def Internaldate2epoch(resp):
     """Convert IMAP4 INTERNALDATE to UT.
 
-    Returns seconds since the epoch.
-    """
+    Returns seconds since the epoch."""
+
+    from calendar import timegm
 
     mo = InternalDate.match(resp)
     if not mo:
@@ -191,4 +245,4 @@ def Internaldate2epoch(resp):
 
     tt = (year, mon, day, hour, min, sec, -1, -1, -1)
 
-    return time.mktime(tt)
+    return timegm(tt) - zone

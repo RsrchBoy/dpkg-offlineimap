@@ -1,5 +1,5 @@
 # Base repository support
-# Copyright (C) 2002-2012 John Goerzen & contributors
+# Copyright (C) 2002-2015 John Goerzen & contributors
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 
 import re
 import os.path
-import traceback
 from sys import exc_info
+
 from offlineimap import CustomConfig
 from offlineimap.ui import getglobalui
 from offlineimap.error import OfflineImapError
@@ -39,6 +39,7 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
         self.mapdir = os.path.join(self.uiddir, 'UIDMapping')
         if not os.path.exists(self.mapdir):
             os.mkdir(self.mapdir, 0o700)
+        # FIXME: self.uiddir variable name is lying about itself.
         self.uiddir = os.path.join(self.uiddir, 'FolderValidity')
         if not os.path.exists(self.uiddir):
             os.mkdir(self.uiddir, 0o700)
@@ -103,9 +104,11 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
     def getmapdir(self):
         return self.mapdir
 
+    # Interface from CustomConfig.ConfigHelperMixin
     def getsection(self):
         return 'Repository ' + self.name
 
+    # Interface from CustomConfig.ConfigHelperMixin
     def getconfig(self):
         return self.config
 
@@ -131,6 +134,7 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
 
     def should_sync_folder(self, fname):
         """Should this folder be synced?"""
+
         return fname in self.folderincludes or self.folderfilter(fname)
 
     def get_create_folders(self):
@@ -138,11 +142,12 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
 
         It is disabled by either setting the whole repository
         'readonly' or by using the 'createfolders' setting."""
+
         return (not self._readonly) and \
             self.getconfboolean('createfolders', True)
 
     def makefolder(self, foldername):
-        """Create a new folder"""
+        """Create a new folder."""
         raise NotImplementedError
 
     def deletefolder(self, foldername):
@@ -159,6 +164,7 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
         that forward and backward nametrans actually match up!
         Configuring nametrans on BOTH repositories therefore could lead
         to infinite folder creation cycles."""
+
         if not self.get_create_folders() and not dst_repo.get_create_folders():
             # quick exit if no folder creation is enabled on either side.
             return
@@ -190,8 +196,8 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
                     dst_haschanged = True # Need to refresh list
                 except OfflineImapError as e:
                     self.ui.error(e, exc_info()[2],
-                                  "Creating folder %s on repository %s" %\
-                                      (src_name_t, dst_repo))
+                         "Creating folder %s on repository %s"%
+                         (src_name_t, dst_repo))
                     raise
                 status_repo.makefolder(src_name_t.replace(dst_repo.getsep(),
                                                    status_repo.getsep()))
@@ -208,8 +214,8 @@ class BaseRepository(CustomConfig.ConfigHelperMixin, object):
                 # case don't create it on it:
                 if not self.should_sync_folder(dst_name_t):
                     self.ui.debug('', "Not creating folder '%s' (repository '%s"
-                        "') as it would be filtered out on that repository." %
-                                  (dst_name_t, self))
+                        "') as it would be filtered out on that repository."%
+                        (dst_name_t, self))
                     continue
                 # get IMAPFolder and see if the reverse nametrans
                 # works fine TODO: getfolder() works only because we

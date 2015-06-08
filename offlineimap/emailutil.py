@@ -1,5 +1,5 @@
 # Some useful functions to extract data out of emails
-# Copyright (C) 2002-2012 John Goerzen & contributors
+# Copyright (C) 2002-2015 John Goerzen & contributors
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -17,16 +17,14 @@
 
 import email
 from email.Parser import Parser as MailParser
-import time
 
 def get_message_date(content, header='Date'):
-    """
-    Parses mail and returns resulting timestamp.
+    """Parses mail and returns resulting timestamp.
 
     :param header: the header to extract date from;
     :returns: timestamp or `None` in the case of failure.
-    
     """
+
     message = MailParser().parsestr(content, True)
     dateheader = message.get(header)
     # parsedate_tz returns a 10-tuple that can be passed to mktime_tz
