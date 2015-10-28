@@ -1,3 +1,9 @@
+offlineimap (6.5.7-0~14.04~ppa3) trusty; urgency=medium
+
+  * Build for trusty.
+
+ -- Chris Weyl <cweyl@alumni.drew.edu>  Wed, 28 Oct 2015 14:57:12 -0500
+
 offlineimap (6.5.7-0) UNRELEASED; urgency=medium
 
   * Non-maintainer upload.
