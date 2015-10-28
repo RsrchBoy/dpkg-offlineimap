@@ -3,7 +3,7 @@ Section: mail
 Priority: optional
 Maintainer: Dmitrijs Ledkovs <xnox@debian.org>
 Uploaders: John Francesco Ferlito <johnf@inodes.org>
-Build-Depends: debhelper (>= 7.0.50~), python, python-sphinx (>= 1.0.7+dfsg) | python3-sphinx
+Build-Depends: debhelper (>= 7.0.50~), python, python-sphinx (>= 1.0.7+dfsg) | python3-sphinx, asciidoc
 Standards-Version: 3.9.3
 Homepage: http://offlineimap.org/
 
