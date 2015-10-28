@@ -7,7 +7,13 @@
 :mod:`offlineimap's` API documentation
 ======================================
 
-Within :mod:`offlineimap`, the classes :class:`OfflineImap` provides the high-level functionality. The rest of the classes should usually not needed to be touched by the user. Email repositories are represented by a :class:`offlineimap.repository.Base.BaseRepository` or derivatives (see :mod:`offlineimap.repository` for details). A folder within a repository is represented by a :class:`offlineimap.folder.Base.BaseFolder` or any derivative from :mod:`offlineimap.folder`.
+Within :mod:`offlineimap`, the classes :class:`OfflineImap` provides the
+high-level functionality. The rest of the classes should usually not needed to
+be touched by the user. Email repositories are represented by a
+:class:`offlineimap.repository.Base.BaseRepository` or derivatives (see
+:mod:`offlineimap.repository` for details). A folder within a repository is
+represented by a :class:`offlineimap.folder.Base.BaseFolder` or any derivative
+from :mod:`offlineimap.folder`.
 
 This page contains the main API overview of OfflineImap |release|.
 
@@ -15,10 +21,6 @@ OfflineImap can be imported as::
 
  from offlineimap import OfflineImap
 
-The file ``SubmittingPatches.rst`` in the source distribution documents a
-number of resources and conventions you may find useful.  It will eventually
-be merged into the main documentation.
-.. TODO: merge SubmittingPatches.rst to the main documentation
 
 :mod:`offlineimap` -- The OfflineImap module
 =============================================
@@ -26,20 +28,17 @@ be merged into the main documentation.
 .. module:: offlineimap
 
 .. autoclass:: offlineimap.OfflineImap(cmdline_opts = None)
+   :members:
+   :inherited-members:
+   :undoc-members:
+   :private-members:
 
-
-   .. automethod:: run
-
-   .. automethod:: parse_cmd_options
-
-..  .. autoattribute:: ui
-
-      :todo: Document
 
 :class:`offlineimap.account`
 ============================
 
-An :class:`accounts.Account` connects two email repositories that are to be synced. It comes in two flavors, normal and syncable.
+An :class:`accounts.Account` connects two email repositories that are to be
+synced. It comes in two flavors, normal and syncable.
 
 .. autoclass:: offlineimap.accounts.Account
 
@@ -57,7 +56,7 @@ An :class:`accounts.Account` connects two email repositories that are to be sync
 .. autoexception:: offlineimap.error.OfflineImapError
    :members:
 
-   This execption inherits directly from :exc:`Exception` and is raised
+   This exception inherits directly from :exc:`Exception` and is raised
    on errors during the offlineimap execution. It has an attribute
    `severity` that denotes the severity level of the error.
 
@@ -65,9 +64,7 @@ An :class:`accounts.Account` connects two email repositories that are to be sync
 :mod:`offlineimap.globals` -- module with global variables
 ==========================================================
 
-.. module:: offlineimap.globals
-
-Module :mod:`offlineimap.globals` provides the read-only storage
+Module `offlineimap.globals` provides the read-only storage
 for the global variables.
 
 All exported module attributes can be set manually, but this practice
