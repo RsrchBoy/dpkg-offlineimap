@@ -1,3 +1,9 @@
+offlineimap (6.5.7-0~15.04~ppa2) vivid; urgency=medium
+
+  * Build for vivid.
+
+ -- Chris Weyl <cweyl@alumni.drew.edu>  Wed, 28 Oct 2015 19:48:45 -0500
+
 offlineimap (6.5.7-0~15.04~ppa1) vivid; urgency=medium
 
   * Build for vivid.
